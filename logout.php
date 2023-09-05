@@ -6,5 +6,6 @@ session_start();
 # Eso va a eliminar todo lo que haya en $_SESSION
 session_destroy();
 # Finalmente lo redireccionamos al formulario
-header("Location: index.php");
+echo "<div class='ok-msg'> Sesión finalizada </div>";
+header('refresh:3;url=index.php');
 ?>

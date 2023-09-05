@@ -5,7 +5,7 @@ session_start();
 # Y ahora leer si NO hay algo llamado usuario en la sesión,
 # usando empty (vacío, ¿está vacío?)
 # Recomiendo: https://parzibyte.me/blog/2018/08/09/isset-vs-empty-en-php/
-if (empty($_SESSION['Username'])) {
+if (empty($_SESSION['email'])) {
     # Lo redireccionamos al formulario de inicio de sesión
     header("Location: index.php");
     # Y salimos del script
@@ -25,6 +25,10 @@ if (empty($_SESSION['Username'])) {
     <title>Scrapper</title>
 </head>
 <body>
+<?php
+	if($_SESSION['rol']==0)
+    	echo "<p> Crear un nuevo <a href='nuevoUser.php'>Usuario</a> </p>";
+?>
 <!-- Por cierto, también se puede usar HTML como en todos los scripts de PHP-->
 <p>
     Control de scrapping
