@@ -2,7 +2,7 @@
 
 // Conexión a la base de datos
 
-$db = new PDO('sqlite:users.sqlite');
+$db = new PDO('sqlite:db/users.sqlite');
 // Validar el formulario
 if (isset($_POST['email']) && isset($_POST['password'])) {
     // Obtener el usuario de la base de datos
