@@ -320,20 +320,19 @@ def BUscrap(limit=""):
         #titulo=driver.find_element(By.CLASS_NAME, "sc-kZUnxY")
         titulo=titulo.text.split("\n")[0]
         contenido=driver.find_element('xpath','//div[@id="section-detalle"]')
-        #contenido=driver.find_element(By.ID,'section-detalle')
-        #contenido=driver.find_element(By.CLASS_NAME,"sc-bGZrDQ")
-        contenido=contenido.text
-        cont_list=contenido.split("\n")
-        modalidad=["Remoto","Híbrido","Presencial"]
-        cont_list = list(extraer(cont_list, modalidad))
-        ubi=cont_list[1].split(",")
+        ubicacion=driver.find_elements('xpath','//div[@id="section-detalle"]//h2')[1]
+        ubicacion=ubicacion.text
+        contenido=contenido.get_attribute('innerHTML')
+        descript=contenido[contenido.find("<p>"):]
+        descript=descript[:descript.find('<div class="sc-bFNFop gaCxJs">')]
+        ubi=ubicacion.split(",")
         if len(ubi)>2:
             depas.append(ubi[1])
         else:
             depas.append(ubi[0])
         distritos.append(ubi[0])
         jobs.append(titulo)
-        descript='\n'.join(cont_list[2:])
+        #descript='\n'.join(cont_list[2:])
         desc.append(descript)
         cat.append(categoriaB(descript))
         hipervinculos.append(s[i].text)
