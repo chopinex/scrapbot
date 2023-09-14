@@ -53,6 +53,9 @@ if ($_POST['fuente']=="cv"){
 if ($_POST['fuente']=="bm"){
 	$cmd = escapeshellcmd("./realScrapper.py 3 ".$_POST["valor"]. " ".$_POST["bd"]);
 }
+if ($_POST['fuente']=="tr"){
+	$cmd = escapeshellcmd("./realScrapper.py 4 ".$_POST["valor"]. " ".$_POST["bd"]);
+}
 //$cmd=escapeshellcmd("xvfb-run ./seleniumTest.py");
 if(isset($_POST['ejecutar'])) {
 
@@ -78,6 +81,7 @@ if(isset($_POST['ejecutar'])) {
 	<button class="tablinks" onclick="openCity(event, 'Computrabajo')">Computrabajo</button>
 	<button class="tablinks" onclick="openCity(event, 'Convocatorias')">Convocatorias</button>
 	<button class="tablinks" onclick="openCity(event, 'Bumeran')">Bumeran</button>
+	<button class="tablinks" onclick="openCity(event, 'Trabajosdiarios')">Trabajos Diarios</button>
 </div>
 <hr />
 
@@ -89,6 +93,7 @@ if(isset($_POST['ejecutar'])) {
     </select>
 
 	<div id="Computrabajo" class="tabcontent">
+		<h2>pe.computrabajo.com</h2>
 	    <table>
 			<tr>
 				<td><input type="checkbox" name="marcas[]" value="Lima" checked/></td><td><label>Lima</label></td><td><input type="number" name ="valores[]" min="0" max="100" value="10"/></td>
@@ -132,12 +137,21 @@ if(isset($_POST['ejecutar'])) {
 	</div>
 
 	<div id="Convocatorias" class="tabcontent">
+		<h2>www.convocatoriasdetrabajo.com/buscar-trabajos-en-AREQUIPA-4.html</h2>
 		<input type="hidden" name="fuente" value="cv"/>
 		<button type="submit" name="ejecutar">Realizar scrapping</button>
 	</div>
 
 	<div id="Bumeran" class="tabcontent">
+		<h2>www.bumeran.com.pe</h2>
 		<input type="hidden" name="fuente" id="stigma" value="bm"/>
+		<input type="number" name ="valor" min="0" max="100" value="20"/>
+		<button type="submit" name="ejecutar">Realizar scrapping</button>
+	</div>
+
+	<div id="Trabajosdiarios" class="tabcontent">
+		<h2>pe.trabajosdiarios.com</h2>
+		<input type="hidden" name="fuente" id="stigma" value="tr"/>
 		<input type="number" name ="valor" min="0" max="100" value="20"/>
 		<button type="submit" name="ejecutar">Realizar scrapping</button>
 	</div>	
@@ -179,6 +193,8 @@ if(isset($_POST['ejecutar'])) {
 	  		document.getElementById('stigma').value="cv";
 	  	if(cityName=="Bumeran")
 	  		document.getElementById('stigma').value="bm";
+	  	if(cityName=="Trabajosdiarios")
+	  		document.getElementById('stigma').value="tr";
 
 	} 
 </script>

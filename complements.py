@@ -6,6 +6,9 @@ from bs4 import BeautifulSoup
 import re
 from joblib import dump, load
 import urllib3
+import string
+import random
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 username = 'spweyay4hc'
@@ -92,3 +95,9 @@ def categoriaB(descripcion):
     clf=load('clasificadorB.joblib')
     resp=clf.predict([descripcion])
     return resp[0]
+
+def get_random_string(length):
+    # choose from all lowercase letter
+    letters = string.ascii_lowercase + string.digits
+    result_str = ''.join(random.choice(letters) for i in range(length))
+    return result_str

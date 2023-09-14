@@ -1,7 +1,6 @@
 #!/var/www/myenv/bin/python3 -u
 import requests
 from bs4 import BeautifulSoup,SoupStrainer
-#import datetime
 from mysql.connector import connect, Error
 import sqlite3
 from sqlalchemy import create_engine
@@ -11,7 +10,8 @@ import random
 import string
 import sys
 from urllib import parse
-from complements import descripcion, slugify, categoria, categoriaB
+from complements import descripcion, slugify, categoria, categoriaB, get_random_string
+from anexScrapper import TRDscrap
 from threading import Thread
 import pandas as pd
 import math
@@ -80,12 +80,6 @@ def extraer(test_list, vals):
             return
         yield ele
 
-def get_random_string(length):
-    # choose from all lowercase letter
-    letters = string.ascii_lowercase + string.digits
-    result_str = ''.join(random.choice(letters) for i in range(length))
-    return result_str
-
 def get_ubigeo(depa,dist):
     dist=dist.replace("Cercado De ","")
     dist=dist.replace("Aguaytía","Padre Abad")
@@ -109,7 +103,7 @@ def get_ubigeo(depa,dist):
     return list(map(int,lista))
     
 def CTscrap(limit=""):
-    print("Capturando nuevos trabajos...")
+    print("Capturando nuevos trabajos de pe.computrabajo.com...")
     base_url='https://pe.computrabajo.com'
     # Making a GET request
     #HEADERS = {"User-Agent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"}
@@ -260,7 +254,7 @@ def CTscrap(limit=""):
 
 def BUscrap(limit=""):
     limit=int(limit)
-    print("Capturando nuevos trabajos...")
+    print("Capturando nuevos trabajos de www.bumeran.com.pe...")
     #options=webdriver.FirefoxOptions()
     options=Options()
     #username = 'spweyay4hc'
@@ -385,7 +379,7 @@ def AQPscrap():
     base_url='https://www.convocatoriasdetrabajo.com/buscar-trabajos-en-AREQUIPA-4.html'
     HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
     r = requests.get(base_url,headers=HEADERS)
-    print("Capturando nuevos trabajos...")
+    print("Capturando nuevos trabajos de www.convocatoriasdetrabajo.com...")
     soup = BeautifulSoup(r.content, 'html.parser')
     s= soup.find_all('section',class_='conv-header')
     t= soup.find_all('div',class_='conv-detalle')
@@ -506,6 +500,9 @@ if __name__ == "__main__":
             dump(df,sys.argv[2])
         elif sys.argv[1]=="3":
             df=BUscrap(sys.argv[2])
+            dump(df,sys.argv[3])
+        elif  sys.argv[1]=="4":
+            df=TRDscrap(sys.argv[2])
             dump(df,sys.argv[3])    
     else:
         print("Faltan argumentos.")
