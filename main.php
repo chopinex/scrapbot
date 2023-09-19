@@ -43,6 +43,7 @@ foreach ($_POST['marcas'] as $selected) {
 		$cnt++;
 }
 $salida = implode(',',$lugares);
+echo $_POST['fuente'];
 $output = shell_exec('which firefox');
 if ($_POST['fuente']=="ct"){
 	$cmd=escapeshellcmd("./realScrapper.py 1 '" . $salida . "' ".$_POST["bd"]);
@@ -144,7 +145,7 @@ if(isset($_POST['ejecutar'])) {
 
 	<div id="Bumeran" class="tabcontent">
 		<h2>www.bumeran.com.pe</h2>
-		<input type="hidden" name="fuente" id="stigma" value="bm"/>
+		<input type="hidden" name="fuente" value="bm"/>
 		<input type="number" name ="valor" min="0" max="100" value="20"/>
 		<button type="submit" name="ejecutar">Realizar scrapping</button>
 	</div>

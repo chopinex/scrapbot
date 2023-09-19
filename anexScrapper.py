@@ -207,6 +207,13 @@ def INscrap(limit=""):
 	totPags=[lim//axp+1 for lim in limites]
 	base_url='https://pe.indeed.com/jobs?q=&l='
 	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+	jobs=[]
+	depas=[]
+	distritos=[]
+	desc=[]
+	cats=[]
+	date=[]
+	hipervinculos=[]
 	print("Capturando nuevos trabajos de pe.indeed.com...")
 
 	options=Options()
@@ -216,17 +223,46 @@ def INscrap(limit=""):
 	options.add_argument('--disable-dev-shm-usage')
 	options.add_argument('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36')
 	driver = webdriver.Chrome(service=service, options=options)
-	driver.implicitly_wait(10)
-	driver.get(base_url+"Lima")
-	titulos=driver.find_elements('xpath','//h2[contains(@class, "jobTitle")]//a')
-	lugares=driver.find_elements('xpath','//div[contains(@class,"companyLocation")]')
-	tiempos=driver.find_elements('xpath','//div[contains(@class,"heading6")]//span[@class="date"]')
-	for t in titulos:
-		print(t.text)
-	for l in lugares:
-		print(l.text)
-	for tt in tiempos:
-		print(tt.text)
-
-INscrap("10")
+	###Ciclo?
+	page_url=base_url+regiones[0]+"&start=0"
+	driver.get(page_url)
+	for j in range(totPags[0]):
+		#print(driver.current_url)
+		titulos=driver.find_elements('xpath','//h2[contains(@class, "jobTitle")]//a')
+		lugares=driver.find_elements('xpath','//div[contains(@class,"companyLocation")]')
+		tiempos=driver.find_elements('xpath','//div[contains(@class,"heading6")]//span[@class="date"]')
+		if (j+1)*axp>limites[0]:
+			titulos=titulos[:limites[0]-j*axp]
+			lugares=lugares[:limites[0]-j*axp]
+			tiempos=tiempos[:limites[0]-j*axp]
+		for t in titulos:
+			jobs.append(t.text)
+			#print(t.get_attribute("href"))
+			#iden=t.get_attribute("id")
+			#iden=iden.replace("job_","")
+			hipervinculos.append(t.get_attribute("href"))
+			#t.click()
+		for l in lugares:
+			ll=re.split(',|\n',l.text)
+			if len(ll)<2:
+				distritos.append(regiones[0])
+				depas.append(regiones[0])
+			else:
+				distritos.append(ll[0])
+				depas.append(ll[1])
+		for tt in tiempos:
+			ttt=tt.text.replace("Posted\n","")
+			print(ttt)
+			date.append(fecha(ttt))
+		nexts=driver.find_elements('xpath','//a[contains(@class,"css-akkh0a")]')
+		print(nexts[-1].get_attribute("href"))
+		driver.implicitly_wait(15)
+		nexts[-1].click()
+	print(len(jobs))
+	for h in hipervinculos:
+		driver.get(h)
+		descripcion=driver.find_element('xpath','//div[@id="jobDescriptionText"]')
+		desc.append(descripcion.get_attribute('innerHTML'))
+	print(len(desc))
+#INscrap("20")
 
