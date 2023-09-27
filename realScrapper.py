@@ -11,7 +11,7 @@ import string
 import sys
 from urllib import parse
 from complements import descripcion, slugify, categoria, categoriaB, get_random_string
-from anexScrapper import TRDscrap
+from anexScrapper import TRDscrap, EPscrap
 from threading import Thread
 import pandas as pd
 import math
@@ -503,6 +503,9 @@ if __name__ == "__main__":
             dump(df,sys.argv[3])
         elif  sys.argv[1]=="4":
             df=TRDscrap(sys.argv[2])
+            dump(df,sys.argv[3])
+        elif  sys.argv[1]=="5":
+            df=EPscrap(sys.argv[2])
             dump(df,sys.argv[3])    
     else:
         print("Faltan argumentos.")

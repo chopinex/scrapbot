@@ -57,6 +57,9 @@ if ($_POST['fuente']=="bm"){
 if ($_POST['fuente']=="tr"){
 	$cmd = escapeshellcmd("./realScrapper.py 4 ".$_POST["valor"]. " ".$_POST["bd"]);
 }
+if ($_POST['fuente']=="ep"){
+	$cmd = escapeshellcmd("./realScrapper.py 5 ".$_POST["valor"]. " ".$_POST["bd"]);
+}
 //$cmd=escapeshellcmd("xvfb-run ./seleniumTest.py");
 if(isset($_POST['ejecutar'])) {
 
@@ -83,6 +86,7 @@ if(isset($_POST['ejecutar'])) {
 	<button class="tablinks" onclick="openCity(event, 'Convocatorias')">Convocatorias</button>
 	<button class="tablinks" onclick="openCity(event, 'Bumeran')">Bumeran</button>
 	<button class="tablinks" onclick="openCity(event, 'Trabajosdiarios')">Trabajos Diarios</button>
+	<button class="tablinks" onclick="openCity(event, 'Empleosperu')">Empleos Perú</button>
 </div>
 <hr />
 
@@ -152,7 +156,14 @@ if(isset($_POST['ejecutar'])) {
 
 	<div id="Trabajosdiarios" class="tabcontent">
 		<h2>pe.trabajosdiarios.com</h2>
-		<input type="hidden" name="fuente" id="stigma" value="tr"/>
+		<input type="hidden" name="fuente" value="tr"/>
+		<input type="number" name ="valor" min="0" max="100" value="20"/>
+		<button type="submit" name="ejecutar">Realizar scrapping</button>
+	</div>
+
+	<div id="Empleosperu" class="tabcontent">
+		<h2>mtpe-candidatos.empleosperu.gob.pe</h2>
+		<input type="hidden" name="fuente" id="stigma" value="ep"/>
 		<input type="number" name ="valor" min="0" max="100" value="20"/>
 		<button type="submit" name="ejecutar">Realizar scrapping</button>
 	</div>	
@@ -196,6 +207,8 @@ if(isset($_POST['ejecutar'])) {
 	  		document.getElementById('stigma').value="bm";
 	  	if(cityName=="Trabajosdiarios")
 	  		document.getElementById('stigma').value="tr";
+	  	if(cityName=="Empleosperu")
+	  		document.getElementById('stigma').value="ep";
 
 	} 
 </script>

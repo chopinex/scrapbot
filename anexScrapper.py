@@ -17,15 +17,40 @@ from webdriver_manager.chrome import ChromeDriverManager
 dub = pd.read_csv('TB_UBIGEOS.csv', encoding='latin-1')
 
 def fecha(cadena: str):
-    entradas=cadena.split()
-    #mapeo
-    today=date.today()
-    if entradas[-1] == "hoy":
-        return today
-    elif entradas[-1]=="ayer":
-        return today-timedelta(days=1)
-    elif entradas[-1]=="días":
-        return today-timedelta(days=int(entradas[-2]))
+	entradas=cadena.split()
+	#mapeo
+	today=date.today()
+	if entradas[-1] in ["Hoy","hoy"] :
+		return today
+	elif entradas[-1]=="ayer":
+		return today-timedelta(days=1)
+	elif entradas[-1]=="días":
+		return today-timedelta(days=int(entradas[-2]))
+	else:
+		if entradas[-2]=="ene":
+			return date(int(entradas[-1]),1,int(entradas[-3]))
+		elif entradas[-2]=="feb":
+			return date(int(entradas[-1]),2,int(entradas[-3]))
+		elif entradas[-2]=="mar":
+			return date(int(entradas[-1]),3,int(entradas[-3]))
+		elif entradas[-2]=="abr":
+			return date(int(entradas[-1]),4,int(entradas[-3]))
+		elif entradas[-2]=="may":
+			return date(int(entradas[-1]),5,int(entradas[-3]))
+		elif entradas[-2]=="jun":
+			return date(int(entradas[-1]),6,int(entradas[-3]))
+		elif entradas[-2]=="jul":
+			return date(int(entradas[-1]),7,int(entradas[-3]))
+		elif entradas[-2]=="ago":
+			return date(int(entradas[-1]),8,int(entradas[-3]))
+		elif entradas[-2]=="sept":
+			return date(int(entradas[-1]),9,int(entradas[-3]))
+		elif entradas[-2]=="oct":
+			return date(int(entradas[-1]),10,int(entradas[-3]))
+		elif entradas[-2]=="nov":
+			return date(int(entradas[-1]),11,int(entradas[-3]))
+		elif entradas[-2]=="dic":
+			return date(int(entradas[-1])-1,12,int(entradas[-3]))
 
 def get_ubigeo(depa,dist):
     dist=dist.replace("Cercado De ","")
@@ -39,6 +64,13 @@ def get_ubigeo(depa,dist):
     dist=dist.replace("Urb. Maranga - ","")
     dist=dist.replace(".","")
     dist=dist.replace(" - Lima","")
+
+    depa=depa.replace("CHICLAYO","LAMBAYEQUE")
+    depa=depa.replace("MAYNAS","LORETO")
+    depa=depa.replace("ALTO AMAZONAS","LORETO")
+    depa=depa.replace("SANTA","ANCASH")
+    depa=depa.replace("LA MAR","AYACUCHO")
+
     replacements = (("Á","A"),("á", "a"),("é", "e"),("í", "i"),("ó", "o"),("ú", "u"),("ü", "u"))
     for (a,b) in replacements:
       dist=dist.replace(a,b)
@@ -113,6 +145,29 @@ def mapa_categorias(text):
 		return 87
 	return 34
 
+def seleniumConfig():
+	options=Options()
+	service = Service(executable_path='./drivers/chromedriver')
+	options.add_argument('--headless')
+	options.add_argument('--no-sandbox')
+	options.add_argument('--disable-dev-shm-usage')
+	options.add_argument('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36')
+	#options.add_argument(f'--proxy-server={proxy_server_url}')
+	driver = webdriver.Chrome(service=service, options=options)
+	return driver
+
+def scroll_down(driver,howmany):
+	if howmany<=30:
+		return
+	j = 0
+	scrolls= (howmany-30)//10 + 1
+	while j<scrolls:
+		ele = WebDriverWait(driver,20).until(EC.visibility_of_element_located(('xpath','//div[contains(@class,"list__body")]')))
+		driver.execute_script("arguments[0].scrollIntoView(true);", ele)
+		time.sleep(0.5)
+		#name = ele.find_element(By.XPATH, ".//descendant::h3//a").get_attribute('innerText')
+		j = j + 1
+
 def TRDscrap(limit=""):
 	limit=int(limit)
 	axp=12
@@ -180,8 +235,6 @@ def TRDscrap(limit=""):
 		cats.append(mapa_categorias(jobs[i]+desc[i].decode('utf-8')))
 		#print(depas[i]+" "+distritos[i]+" "+str(ubigeo))
 		if len(ubigeo)>=3:
-			sys.stdout.write("\r"+"*"*(i+1)+" "+str(int((i+1)/limit*100))+"%")
-			sys.stdout.flush()
 			hasheo=get_random_string(7)
 			slug=slugify(desc[i])
 			objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
@@ -264,5 +317,99 @@ def INscrap(limit=""):
 		descripcion=driver.find_element('xpath','//div[@id="jobDescriptionText"]')
 		desc.append(descripcion.get_attribute('innerHTML'))
 	print(len(desc))
-#INscrap("20")
+
+def EPscrap(limit=""):
+	limit=int(limit)
+	#base_url="https://www.empleosperu.gob.pe/portal-mtpe/#/"
+	base_url="https://mtpe-candidatos.empleosperu.gob.pe/search-jobs"
+	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+	jobs=[]
+	depas=[]
+	distritos=[]
+	desc=[]
+	cats=[]
+	date=[]
+	date2=[]
+	hipervinculos=[]
+	newFound=0
+	print("Capturando nuevos trabajos de mtpe-candidatos.empleosperu.gob.pe...")
+	driver=seleniumConfig()
+	driver.get(base_url)
+	driver.implicitly_wait(5)
+	#print(driver.page_source)
+	#WebDriverWait(driver,30).until(EC.element_to_be_clickable(('xpath','//a[contains(@class,"btn-ofertas")]'))).click()
+	scroll_down(driver,limit)
+	ads=driver.find_elements('xpath','//a[contains(@class,"list__item")]')
+	for a in ads[:limit]:
+		newFound+=1
+		jobs.append(a.find_element('xpath','.//h5').text)
+		lugar=a.find_element('xpath','.//div[contains(@class,"vacancy__add-ellipsis")]').text.split("|")
+		#print("Empresa - Sitio: ",lugar)
+		if len(lugar)>1:
+			lugar=lugar[1].split("-")
+			#print("Depar - Dist: ",lugar)
+			if len(lugar)>1:
+				depas.append(lugar[0])
+				distritos.append(lugar[1])
+			else:
+				depas.append("Lima")
+				distritos.append("Lima")
+		else:
+			depas.append("Lima")
+			distritos.append("Lima")
+		hipervinculos.append(a.get_attribute("href"))
+		nf=newFound//2
+		sys.stdout.write("\r"+"*"*nf+" "+str(int(nf/limit*100))+"%")
+		sys.stdout.flush()
+		'''a.click()
+		fecha=driver.find_element('xpath','.//div[contains(@class,"details-component__job-info")]')
+		print(fecha.text)'''
+	for h in hipervinculos:
+		newFound+=1
+		driver.get(h)
+		time.sleep(2)
+		try:
+			fe=driver.find_element('xpath','//div[contains(@class,"details-component__job-info")]//li[contains(text(),"Fecha")]').text
+		except:
+			fe="hoy"
+		date.append(fecha(fe))
+		fe=driver.find_element('xpath','//div[contains(@class,"details-component__job-info")]//li[contains(text(),"Abierto")]').text
+		date2.append(fecha(fe))
+		desc.append(driver.find_element('xpath','//pre[contains(@class,"container")]//article').get_attribute("innerHTML"))
+		nf=newFound//2
+		sys.stdout.write("\r"+"*"*nf+" "+str(int(nf/limit*100))+"%")
+		sys.stdout.flush()
+		#print(description.get_attribute("innerHTML"))
+	print()
+	print(newFound//2," nuevos trabajos descubiertos")
+	print("Iniciando procesamiento...")
+
+	###dump in pandas
+	df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
+		"department_id","province_id","district_id","date_from","date_to","imported","date_created","status",
+		"validated","adtype_id","created_at"])
+
+	for i in range(len(jobs)):
+		dp=depas[i].strip()
+		if dp.isdigit():
+			ubigeo=[int(dp[:2]),int(dp),int(distritos[i])]
+		else:
+			ubigeo=get_ubigeo(dp,distritos[i].strip())
+		#ubigeo=get_ubigeo(depas[i].strip(),distritos[i].strip())
+		cats.append(mapa_categorias(jobs[i]+desc[i]))
+		hasheo=get_random_string(7)
+		slug=slugify(desc[i])
+		objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
+		'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cats[i],
+		'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':date[i],
+		'date_to':date2[i],'imported':0,'date_created':date[i],'status':1,'validated':1,
+		'adtype_id':1,'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+		objeto = pd.DataFrame([objeto])
+		df = pd.concat((df,objeto),ignore_index=True)
+		time.sleep(0.1)
+		sys.stdout.write("\r"+"*"*(i+1)+" "+str(int((i+1)/limit*100))+"%")
+		sys.stdout.flush()
+	print()
+	print(df.shape[0]," trabajos agregados")
+	return df
 
