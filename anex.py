@@ -394,5 +394,30 @@ def PTscrap(limit=""):
 	print(df.shape[0]," trabajos agregados")
 	return df
 
-print(PTscrap("20"))
-#EPscrap("10")
+def TRMscrap(limit=""):
+	#limit=int(limit)
+	base_url='https://www.troomes.com/app.php/postulante/busqueda'
+	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+	print("Capturando nuevos trabajos de www.troomes.com...")
+	jobs=[]
+	depas=[]
+	distritos=[]
+	desc=[]
+	cats=[]
+	dates=[]
+	hipervinculos=[]
+	username = "arturoAqp"
+	password = "Gamer001!"
+	driver=seleniumConfig()
+	driver.get("https://www.troomes.com/index.php?&sid=5d253d5d0fcb5566272d2817550e09f7")
+	driver.implicitly_wait(5)
+	print(driver.page_source)
+	#WebDriverWait(driver=driver, timeout=100).until(EC.element_to_be_clickable(('xpath', 'input[@id="username"]'))).send_keys(username)
+	#driver.find_element('xpath', '//input[@id="username"]').send_keys(username)
+	#driver.find_element("id", "password").send_keys(password)
+	#driver.find_element("id", "login").click()
+	#WebDriverWait(driver=driver, timeout=10).until(
+	#lambda x: x.execute_script("return document.readyState === 'complete'"))
+	#user=driver.find_element('xpath','//*[@id="profile_menu"]')
+	#print(user.text)
+TRMscrap()

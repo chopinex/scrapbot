@@ -52,6 +52,33 @@ def fecha(cadena: str):
 		elif entradas[-2]=="dic":
 			return date(int(entradas[-1])-1,12,int(entradas[-3]))
 
+def fecha2(cadena: str):
+	entradas=cadena.split()
+	if entradas[2]=="enero" or entradas[2]=="January":
+		return date(int(entradas[4]),1,int(entradas[0]))
+	elif entradas[2]=="febrero" or entradas[2]=="February":
+		return date(int(entradas[4]),2,int(entradas[0]))
+	elif entradas[2]=="marzo" or entradas[2]=="March":
+		return date(int(entradas[4]),3,int(entradas[0]))
+	elif entradas[2]=="abril" or entradas[2]=="April":
+		return date(int(entradas[4]),4,int(entradas[0]))
+	elif entradas[2]=="mayo" or entradas[2]=="May":
+		return date(int(entradas[4]),5,int(entradas[0]))
+	elif entradas[2]=="junio" or entradas[2]=="June":
+		return date(int(entradas[4]),6,int(entradas[0]))
+	elif entradas[2]=="julio" or entradas[2]=="July":
+		return date(int(entradas[4]),7,int(entradas[0]))
+	elif entradas[2]=="agosto" or entradas[2]=="August":
+		return date(int(entradas[4]),8,int(entradas[0]))
+	elif entradas[2]=="septiembre" or entradas[2]=="September":
+		return date(int(entradas[4]),9,int(entradas[0]))
+	elif entradas[2]=="octubre" or entradas[2]=="October":
+		return date(int(entradas[4]),10,int(entradas[0]))
+	elif entradas[2]=="noviembre" or entradas[2]=="November":
+		return date(int(entradas[4]),11,int(entradas[0]))
+	elif entradas[2]=="diciembre" or entradas[2]=="December":
+		return date(int(entradas[4]),12,int(entradas[0]))
+
 def get_ubigeo(depa,dist):
     dist=dist.replace("Cercado De ","")
     dist=dist.replace("CENTRO DE ","")
@@ -69,7 +96,9 @@ def get_ubigeo(depa,dist):
     depa=depa.replace("MAYNAS","LORETO")
     depa=depa.replace("ALTO AMAZONAS","LORETO")
     depa=depa.replace("SANTA","ANCASH")
+    depa=depa.replace("PATAZ","LA LIBERTAD")
     depa=depa.replace("LA MAR","AYACUCHO")
+    depa=depa.replace("CAÑETE","LIMA")
 
     replacements = (("Á","A"),("á", "a"),("é", "e"),("í", "i"),("ó", "o"),("ú", "u"),("ü", "u"))
     for (a,b) in replacements:
@@ -82,6 +111,14 @@ def get_ubigeo(depa,dist):
     resultado=dub.loc[(dub['departamento']==depa.upper()) & (dub['distrito']==dist.upper())]
     lista=resultado[['departamento_inei','provincia_inei','ubigeo_inei']].values.flatten().tolist()
     return list(map(int,lista))
+
+def get_ubigeo2(depa):
+	replacements = (("Á","A"),("á", "a"),("é", "e"),("í", "i"),("ó", "o"),("ú", "u"),("ü", "u"))
+	for (a,b) in replacements:
+		depa=depa.replace(a,b)
+	resultado=dub.loc[(dub['departamento']==depa.upper())]
+	valor=resultado[['departamento_inei']].values.flatten().tolist()[0]
+	return [int(valor),int(valor*100+1),int(valor*10000+101)]
 
 def mapa_categorias(text):
 	clean = re.compile(r'<.*?>')
@@ -413,3 +450,95 @@ def EPscrap(limit=""):
 	print(df.shape[0]," trabajos agregados")
 	return df
 
+def PTscrap(limit=""):
+	limit=int(limit)
+	base_url='https://www.perutrabajos.com/'
+	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+	r = requests.get(base_url,headers=HEADERS)
+	print("Capturando nuevos trabajos de www.perutrabajos.com...")
+	jobs=[]
+	depas=[]
+	#distritos=[]
+	desc=[]
+	cats=[]
+	dates=[]
+	hipervinculos=[]
+	#ofertores=[]
+	soup = BeautifulSoup(r.content, 'lxml')
+	#print(soup)
+	ads= soup.find_all('div',class_='post__content')
+	newFound=0
+	for a in ads:
+		if newFound>=limit:
+			break
+		link1=a.find('a', href=True)
+		r=requests.get(base_url+link1["href"],headers=HEADERS)
+		soup = BeautifulSoup(r.content, 'lxml')
+		empresa_desc=soup.find('div',class_='datos')
+		empresa_desc=empresa_desc.text.split('\n')
+		empresa_desc=[i for i in empresa_desc if i]
+		empresa_desc='\n'.join(empresa_desc[1:-2])
+		offers=soup.find_all('article',class_='info-conv')
+		for of in offers:
+			if newFound>=limit:
+				break
+			newFound+=1
+			depa_txt='Departamento'
+			fecha_txt='oferta'
+			depa=of.find(lambda tag: tag.name == "p" and depa_txt in tag.text)
+			if depa:
+				ldt=depa.text.split()
+				di=ldt.index("Departamento:") if "Departamento:" in ldt else -1
+				pi=ldt.index("Provincia:")  if "Provincia:" in ldt else -1
+				if pi>=0:
+					depas.append(' '.join(ldt[di+1:pi])[:-1])
+				else:
+					depas.append(' '.join(ldt[di+1:]))
+			else:
+				depas.append("Lima")
+			fechaa=of.find(lambda tag: tag.name == 'p' and fecha_txt in tag.text)
+			if fechaa:
+				dates.append(fecha2(' '.join(fechaa.text.split()[-5:])))
+			else:
+				dates.append(fecha2(date.today().strftime("%d de %B del %Y")))
+			r=requests.get(base_url+of.h4.a["href"],headers=HEADERS)
+			hipervinculos.append(base_url+of.h4.a["href"])
+			soup = BeautifulSoup(r.content, 'lxml')
+			title=soup.find('h1')
+			jobs.append(title.text)
+			description=soup.find('div',class_='conv-detalle')
+			desc.append(empresa_desc.encode()+description.encode_contents())
+			sys.stdout.write("\r"+"*"*newFound+" "+str(int(newFound/limit*100))+"%")
+			sys.stdout.flush()
+	print()
+	print(newFound," nuevos trabajos descubiertos")
+	print("Iniciando procesamiento...")
+
+	###dump in pandas
+	df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
+		"department_id","province_id","district_id","date_from","date_to","imported","date_created","status",
+		"validated","adtype_id","created_at"])
+
+	for i in range(len(jobs)):
+		dp=depas[i].strip()
+		'''if dp.isdigit():
+			ubigeo=[int(dp[:2]),int(dp),int(distritos[i])]
+		else:'''
+		ubigeo=get_ubigeo2(dp)
+		#ubigeo=get_ubigeo(depas[i].strip(),distritos[i].strip())
+		cats.append(mapa_categorias(jobs[i]+desc[i].decode('utf-8')))
+		hasheo=get_random_string(7)
+		slug=slugify(desc[i])
+		objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
+		'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cats[i],
+		'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':date.today().strftime('%Y-%m-%d'),
+		'date_to':dates[i],'imported':0,'date_created':date.today().strftime('%Y-%m-%d'),'status':1,'validated':1,
+		'adtype_id':1,'created_at':date.today().strftime('%Y-%m-%d')}
+		objeto = pd.DataFrame([objeto])
+		df = pd.concat((df,objeto),ignore_index=True)
+		time.sleep(0.1)
+		sys.stdout.write("\r"+"*"*(i+1)+" "+str(int((i+1)/limit*100))+"%")
+		sys.stdout.flush()
+	print()
+	print(df.shape[0]," trabajos agregados")
+	return df
