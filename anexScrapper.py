@@ -7,6 +7,8 @@ import random
 import time
 from complements import slugify, get_random_string
 import re
+import math
+from lxml import html, etree
 
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -19,12 +21,14 @@ dub = pd.read_csv('TB_UBIGEOS.csv', encoding='latin-1')
 def fecha(cadena: str):
 	entradas=cadena.split()
 	#mapeo
+	if entradas[-1] == "antes":
+		entradas.pop()
 	today=date.today()
-	if entradas[-1] in ["Hoy","hoy"] :
+	if entradas[-1] in ["Hoy","hoy","hrs"] :
 		return today
 	elif entradas[-1]=="ayer":
 		return today-timedelta(days=1)
-	elif entradas[-1]=="días":
+	elif entradas[-1] in ["días","dias"]:
 		return today-timedelta(days=int(entradas[-2]))
 	else:
 		if entradas[-2]=="ene":
@@ -205,6 +209,15 @@ def scroll_down(driver,howmany):
 		#name = ele.find_element(By.XPATH, ".//descendant::h3//a").get_attribute('innerText')
 		j = j + 1
 
+def envio(page,send_data):
+	if page==2:
+		send_url="https://staging.oflik.pe/api/add/ad"
+	else:
+		send_url="https://oflik.pe/api/add/ad"
+	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+	respuesta=requests.post(send_url,data=send_data,headers=HEADERS)
+	#print(respuesta.text)
+
 def TRDscrap(limit=""):
 	limit=int(limit)
 	axp=12
@@ -263,9 +276,9 @@ def TRDscrap(limit=""):
 	print("Iniciando procesamiento...")
 
 	###dump in pandas
-	df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
-		"department_id","province_id","district_id","date_from","date_to","imported","date_created","status",
-		"validated","adtype_id","created_at"])
+	df = pd.DataFrame(columns=["title","clicks","user_id","description","slug","category_id",
+		"department_id","province_id","district_id","date_from","date_to","date_created","status",
+		"validated","created_at"])
 
 	for i in range(len(jobs)):
 		ubigeo=get_ubigeo(depas[i].strip(),distritos[i].strip())
@@ -274,11 +287,11 @@ def TRDscrap(limit=""):
 		if len(ubigeo)>=3:
 			hasheo=get_random_string(7)
 			slug=slugify(desc[i])
-			objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
+			objeto ={'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
 			'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cats[i],
 			'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':date[i],
-			'date_to':date[i]+timedelta(days=30),'imported':0,'date_created':date[i],'status':1,'validated':1,
-			'adtype_id':1,'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+			'date_to':date[i]+timedelta(days=30),'date_created':dates[i],'status':1,'validated':1,
+			'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 			objeto = pd.DataFrame([objeto])
 			df = pd.concat((df,objeto),ignore_index=True)
 			time.sleep(0.1)
@@ -422,9 +435,9 @@ def EPscrap(limit=""):
 	print("Iniciando procesamiento...")
 
 	###dump in pandas
-	df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
-		"department_id","province_id","district_id","date_from","date_to","imported","date_created","status",
-		"validated","adtype_id","created_at"])
+	df = pd.DataFrame(columns=["title","clicks","user_id","description","slug","category_id",
+		"department_id","province_id","district_id","date_from","date_to","date_created","status",
+		"validated","created_at"])
 
 	for i in range(len(jobs)):
 		dp=depas[i].strip()
@@ -436,11 +449,11 @@ def EPscrap(limit=""):
 		cats.append(mapa_categorias(jobs[i]+desc[i]))
 		hasheo=get_random_string(7)
 		slug=slugify(desc[i])
-		objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
+		objeto ={'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
 		'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cats[i],
 		'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':date[i],
-		'date_to':date2[i],'imported':0,'date_created':date[i],'status':1,'validated':1,
-		'adtype_id':1,'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+		'date_to':date2[i],'date_created':dates[i],'status':1,'validated':1,
+		'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 		objeto = pd.DataFrame([objeto])
 		df = pd.concat((df,objeto),ignore_index=True)
 		time.sleep(0.1)
@@ -515,9 +528,9 @@ def PTscrap(limit=""):
 	print("Iniciando procesamiento...")
 
 	###dump in pandas
-	df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
-		"department_id","province_id","district_id","date_from","date_to","imported","date_created","status",
-		"validated","adtype_id","created_at"])
+	df = pd.DataFrame(columns=["title","clicks","user_id","description","slug","category_id",
+		"department_id","province_id","district_id","date_from","date_to","date_created","status",
+		"validated","created_at"])
 
 	for i in range(len(jobs)):
 		dp=depas[i].strip()
@@ -529,11 +542,105 @@ def PTscrap(limit=""):
 		cats.append(mapa_categorias(jobs[i]+desc[i].decode('utf-8')))
 		hasheo=get_random_string(7)
 		slug=slugify(desc[i])
-		objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
+		objeto ={'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
 		'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cats[i],
 		'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':date.today().strftime('%Y-%m-%d'),
-		'date_to':dates[i],'imported':0,'date_created':date.today().strftime('%Y-%m-%d'),'status':1,'validated':1,
-		'adtype_id':1,'created_at':date.today().strftime('%Y-%m-%d')}
+		'date_to':dates[i],'date_created':dates[i],'status':1,'validated':1,
+		'created_at':date.today().strftime('%Y-%m-%d')}
+		objeto = pd.DataFrame([objeto])
+		df = pd.concat((df,objeto),ignore_index=True)
+		time.sleep(0.1)
+		sys.stdout.write("\r"+"*"*(i+1)+" "+str(int((i+1)/limit*100))+"%")
+		sys.stdout.flush()
+	print()
+	print(df.shape[0]," trabajos agregados")
+	return df
+
+def TRMscrap(limit=""):
+	limit=int(limit)
+	totalxp=20
+	numpags=math.ceil(limit/totalxp)
+	base_url='https://www.troomes.com/ucp.php?mode=login'
+	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+	print("Capturando nuevos trabajos de www.troomes.com...")
+	jobs=[]
+	depas=[]
+	#distritos=[]
+	desc=[]
+	cats=[]
+	dates=[]
+	hipervinculos=[]
+	newFound=0
+	session = requests.Session()
+	login=session.get(base_url,headers=HEADERS)
+	parser = html.fromstring(login.text)
+	ses_token=parser.xpath('//input[@name="form_token"]/@value')
+	ses_id=parser.xpath('//input[@name="sid"]/@value')
+	ses_time=parser.xpath('//input[@name="creation_time"]/@value')
+	login_data={
+		"username": "arturoAqp",
+		"password": "Gamer001!",
+		"form_token": ses_token,
+		"sid": ses_id,
+		"redirect": "./index.php",
+		"creation_time": ses_time
+	}
+	session.post(base_url,data=login_data,headers=HEADERS)
+	data_url="https://www.troomes.com/app.php/postulante/busqueda?page="
+	for j in range(numpags):
+		if newFound>=limit:
+			break
+		respuesta=session.get(data_url+str(totalxp*j),headers=HEADERS)
+		parser = html.fromstring(respuesta.text)
+		titulos=parser.xpath('//div[@class="listempleos"]//b[@class="titulo_oferta"]/text()')
+		fechas=parser.xpath('//div[@class="listempleos"]/span[3]/text()')
+		lugares=parser.xpath('//div[@class="listempleos"]//span[4]/text()')
+		ofertas=parser.xpath('//button[@class="Btnresultados"]/@value')
+		for i in range(totalxp):
+			newFound+=1
+			sys.stdout.write("\r"+"*"*newFound+" "+str(int(newFound/limit*100))+"%")
+			sys.stdout.flush()
+			jobs.append(titulos[i])
+			dates.append(fecha(fechas[i]))
+			depas.append(lugares[i])
+			search_data={
+				"mode":"mostrar_oferta",
+				"id_oferta":ofertas[i]
+			}
+			buscar=session.post(data_url,data=search_data,headers=HEADERS)
+			parser = html.fromstring(buscar.text)
+			descripcion=parser.xpath('//div[@id="oferta_trabajo"]/div[@class="descripcion"]')
+			for d in descripcion:
+				desc.append(etree.tostring(d,encoding='unicode'))
+			job_url="https://www.troomes.com/app.php/jobs/"
+			hipervinculos.append(job_url+ofertas[i])
+			if newFound>=limit:
+				break
+
+	print()
+	print(newFound," nuevos trabajos descubiertos")
+	print("Iniciando procesamiento...")
+
+	###dump in pandas
+	df = pd.DataFrame(columns=["title","clicks","user_id","description","slug","category_id",
+		"department_id","province_id","district_id","date_from","date_to","date_created","status",
+		"validated","created_at"])
+
+	for i in range(len(jobs)):
+		dp=depas[i].strip()
+		'''if dp.isdigit():
+			ubigeo=[int(dp[:2]),int(dp),int(distritos[i])]
+		else:'''
+		ubigeo=get_ubigeo2(dp)
+		#ubigeo=get_ubigeo(depas[i].strip(),distritos[i].strip())
+		cats.append(mapa_categorias(jobs[i]+desc[i]))
+		hasheo=get_random_string(7)
+		slug=slugify(desc[i])
+		objeto ={'title':jobs[i],'clicks':0,'user_id':1,
+		'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cats[i],
+		'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':dates[i],
+		'date_to':dates[i]+timedelta(days=30),'date_created':dates[i],'status':1,'validated':1,
+		'created_at':date.today().strftime('%Y-%m-%d')}
 		objeto = pd.DataFrame([objeto])
 		df = pd.concat((df,objeto),ignore_index=True)
 		time.sleep(0.1)

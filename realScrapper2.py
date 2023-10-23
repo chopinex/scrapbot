@@ -10,8 +10,8 @@ import random
 import string
 import sys
 from urllib import parse
-from complements import descripcion, slugify, categoria, categoriaB, get_random_string, basicHash, envioEmpresas
-from anexScrapper import TRDscrap, EPscrap, PTscrap, TRMscrap, envio
+from complements import slugify, categoria, categoriaB, get_random_string
+from anexScrapper import TRDscrap, EPscrap, PTscrap, TRMscrap
 from threading import Thread
 import pandas as pd
 import math
@@ -26,6 +26,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 import numpy as np
+
+import json
+from functools import reduce
 
 dub = pd.read_csv('TB_UBIGEOS.csv', encoding='latin-1')
 
@@ -101,7 +104,60 @@ def get_ubigeo(depa,dist):
     resultado=dub.loc[(dub['departamento']==depa.upper()) & (dub['distrito']==dist.upper())]
     lista=resultado[['departamento_inei','provincia_inei','ubigeo_inei']].values.flatten().tolist()
     return list(map(int,lista))
-    
+
+
+def descripcion(identificador, headers, proxy):
+  data = {
+    'oi': identificador
+  }
+  ret=""
+  MAX_RETRIES=3
+  for _ in range(MAX_RETRIES):
+    try:
+      #print('https://oferta.computrabajo.com/offer/'+identificador+'/d?ipo=3&iapo=1')
+      response = requests.get('https://oferta.computrabajo.com/offer/'+identificador+'/d?ipo=3&iapo=1', headers=headers, proxies = {
+      'http': proxy,'https': proxy}, timeout=(30,60), verify=False)
+      if response.status_code in [200, 404]:
+        break
+    except requests.exceptions.ConnectTimeout:
+      pass
+    except requests.exceptions.SSLError:
+      pass
+    except requests.exceptions.ProxyError:
+      pass
+    except requests.exceptions.ConnectionError:
+      pass
+    except requests.exceptions.ReadTimeout:
+      pass
+  if response is None or response.status_code != 200:
+    print('Request has timed out')
+    return ret
+  soup = BeautifulSoup(response.content, 'html.parser')
+  e=""
+  i=""
+  try:
+    s = soup.find_all('div',class_='fs16')[1]
+    e = soup.find('div',class_='mb5').a.text
+    i = soup.find('div',class_='logo_company').a.img['src']
+
+    ret=[s.encode_contents(),e,i]
+    #ret=s.encode_contents()
+  except:
+    ret=["No codification available",e,i]
+    #ret="No codification available"
+  #f.close()
+  return ret
+
+def basicHash(nombre: str):
+    chars = list(map(ord, nombre))
+    return reduce(lambda x, y:y+x,chars)
+
+def envioEmpresas(send_data):
+    send_url="https://staging.oflik.pe/api/add/company"
+    HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+    respuesta=requests.post(send_url,data=send_data,headers=HEADERS)
+    #print(respuesta.text)
+
 def CTscrap(limit=""):
     print("Capturando nuevos trabajos de pe.computrabajo.com...")
     base_url='https://pe.computrabajo.com'
@@ -157,9 +213,9 @@ def CTscrap(limit=""):
     newFound=0
     desc=[]
     hipervinculos=[]
-    emps=[]
     ll=sum(ubi.values())
-    empresas={}
+    json_file = open('test.json', 'w')####++
+    empresas={}####
     for ep in endpoints:
         donde=""
         for i,lug in enumerate(lugares):
@@ -194,9 +250,6 @@ def CTscrap(limit=""):
         for link in ss:
             dt=link.find_all('p',class_="fs13")[0].text
             pl=''.join(link.find_all('p',class_='fs16')[0].find_all(recursive=False,string=True)).strip()
-            '''emp=link.find_all('p',class_='fs16')[0].a
-            if emp:
-                arch.write(emp['href']+"\n")'''
             words=pl.split(", ")
             if len(words)<2:
                 words.append(words[0])
@@ -216,23 +269,16 @@ def CTscrap(limit=""):
                     dates.append(fecha(dt))
                     #colisiones[code]=[]
                     colisiones.append(txt)
-                    [dtxt,emp,img_emp]=descripcion(txt)
+                    [dtxt,emp,img_emp]=descripcion(txt,HEADERS,proxy)###
                     desc.append(dtxt)
-                    if emp:
-                        emps.append(emp)
+                    if emp:###
                         bh=basicHash(emp)%101
                         if bh in empresas.keys():
                             if emp not in empresas[bh]:
                                 empresas[bh].append(emp)
-                                datos_empresas={'name':emp,'image':img_emp}
-                                envioEmpresas(datos_empresas)
                         else:
                             empresas[bh]=[]
-                            empresas[bh].append(emp)
-                            datos_empresas={'name':emp,'image':img_emp}
-                            envioEmpresas(datos_empresas)
-                    else:
-                        emps.append("")
+                            empresas[bh].append(emp)###
                     hipervinculos.append(url)
                     cat.append(categoria(dtxt))
                     ubi[donde]-=1
@@ -243,14 +289,13 @@ def CTscrap(limit=""):
                     time.sleep(0.1)
                 else:
                     break
-    #arch.close()
+    json_emp=json.dumps(empresas)###++
+    json_file.write(json_emp)###++
+    json_file.close()###++
     ###dump in pandas
-    '''df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
+    df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
         "department_id","province_id","district_id","date_from","date_to","imported","date_created","status",
-        "validated","adtype_id","created_at"])'''
-    df = pd.DataFrame(columns=["title","clicks","user_id","description","slug","category_id",
-        "department_id","province_id","district_id","reference","date_from","date_to","date_created","status",
-        "validated","created_at"])
+        "validated","adtype_id","created_at"])
     print()
     print(newFound," nuevos trabajos descubiertos")
     print("Iniciando procesamiento...")
@@ -262,16 +307,11 @@ def CTscrap(limit=""):
             sys.stdout.flush()
             hasheo=get_random_string(7)
             slug=slugify(desc[i])
-            '''objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
+            objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
             'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cat[i],
             'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':dates[i],
             'date_to':dates[i]+timedelta(days=30),'imported':0,'date_created':dates[i],'status':1,'validated':1,
-            'adtype_id':1,'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}'''
-            objeto ={'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
-            'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cat[i],
-            'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'reference':emps[i],'date_from':dates[i],
-            'date_to':dates[i]+timedelta(days=30),'date_created':dates[i],'status':1,'validated':1,
-            'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+            'adtype_id':1,'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             objeto = pd.DataFrame([objeto])
             df = pd.concat((df,objeto),ignore_index=True)
             time.sleep(0.1)
@@ -330,7 +370,6 @@ def BUscrap(limit=""):
     #colisiones=[]
     desc=[]
     hipervinculos=[]
-    emps=[]
     newFound=0
     #for i in range(len(s)):
     for i in range(limit):
@@ -348,11 +387,6 @@ def BUscrap(limit=""):
         descript=contenido[contenido.find("<p>"):]
         descript=descript[:descript.find('<div class="sc-bFNFop gaCxJs">')]
         ubi=ubicacion.split(",")
-        try:
-            emp=driver.find_element('xpath','//div[contains(@class,"sc-eklpeH")]')
-            emps.append(emp.text)
-        except:
-            emps.append("")
         if len(ubi)>2:
             depas.append(ubi[1])
         else:
@@ -372,9 +406,9 @@ def BUscrap(limit=""):
     driver.quit()
     print("Iniciando procesamiento...")
     ###dump in pandas
-    df = pd.DataFrame(columns=["title","clicks","user_id","description","slug","category_id",
-        "department_id","province_id","district_id","reference","date_from","date_to","date_created","status",
-        "validated","created_at"])
+    df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
+        "department_id","province_id","district_id","date_from","date_to","imported","date_created","status",
+        "validated","adtype_id","created_at"])
     for i in range(len(jobs)):
         #print(depas[i]," ",distritos[i])
         ubigeo=get_ubigeo(depas[i].strip(),distritos[i])
@@ -382,11 +416,11 @@ def BUscrap(limit=""):
             hasheo=get_random_string(7)
             slug=slugify(desc[i])
             #print(i,"--->")
-            objeto ={'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
+            objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
                     'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cat[i],
-                    'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'reference':emps[i],'date_from':dates[i],
-                    'date_to':dates[i]+timedelta(days=30),'date_created':dates[i],'status':1,'validated':1,
-                    'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                    'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':dates[i],
+                    'date_to':dates[i]+timedelta(days=30),'imported':0,'date_created':dates[i],'status':1,'validated':1,
+                    'adtype_id':1,'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             objeto = pd.DataFrame([objeto])
             df = pd.concat((df,objeto),ignore_index=True)
             time.sleep(0.1)
@@ -397,12 +431,12 @@ def BUscrap(limit=""):
 
 def catMap(titulo):
     #2 Administracion,3 Aduana,4 Transporte,10 Contabilidad,17 Ingenieria, 19 Legales,37 prácticas,44 economia, 48 Técnico, 58 Auditoria, 87 Operaciones, 61 Agricultura
-    catmap={'practicante':94,'abogado':81,'innova':77,'calidad':79,'limpieza':30,
-    'ingenie':77,'admin':59,'derecho':81,'aduanas':60,
-    'notificador':87,'abogados':81,'registrador':87,'orientador':87,
-    'tributaria':72,'legal':81,'cuentas':72,'fiscal':59,
-    'coordinador':59,'auditor':90,'técnico':89,
-    'chofer':98,'presupuesto':72,'guardaparque':61,'justicia':81}
+    catmap={'practicante':37,'abogado':19,'innova':17,'calidad':2,'limpieza':30,
+    'ingenie':17,'admin':2,'derecho':19,'aduanas':3,
+    'notificador':87,'abogados':19,'registrador':87,'orientador':87,
+    'tributaria':10,'legal':19,'cuentas':10,'fiscal':2,
+    'coordinador':2,'auditor':58,'técnico':48,
+    'chofer':4,'presupuesto':44,'guardaparque':61,'justicia':19}
     for key in catmap:
         if key in titulo.lower():
             return catmap[key]
@@ -422,8 +456,6 @@ def AQPscrap():
     desc=[]
     dates=[]
     cats=[]
-    emps=[]
-    empresas={}
     newFound=0
     limit=len(s)*2
     for i,tags in enumerate(s):
@@ -438,21 +470,6 @@ def AQPscrap():
         codHTML=[]
         r=requests.get('https://www.convocatoriasdetrabajo.com/'+ep)
         soup = BeautifulSoup(r.content, 'html.parser',parse_only=only_fans)
-        emp=soup.find('h1').span.text
-        emp = ' '.join(emp.split(' ')[1:])
-        img_emp="https://www.convocatoriasdetrabajo.com/"+soup.find('picture').img['src']
-        emps.append(emp)
-        bh=basicHash(emp)%101
-        if bh in empresas.keys():
-            if emp not in empresas[bh]:
-                empresas[bh].append(emp)
-                datos_empresas={'name':emp,'image':img_emp}
-                envioEmpresas(datos_empresas)
-        else:
-            empresas[bh]=[]
-            empresas[bh].append(emp)
-            datos_empresas={'name':emp,'image':img_emp}
-            envioEmpresas(datos_empresas)
         req=soup.find_all('h2')[1] #Requisitos
         codHTML.append(req.encode_contents())
         req=req.next_sibling.next_sibling
@@ -475,12 +492,11 @@ def AQPscrap():
         sys.stdout.flush()
     print()
     print(newFound//2," nuevos trabajos descubiertos")
-    print(cats)
     print("Iniciando procesamiento...")
     ###dump in pandas
-    df = pd.DataFrame(columns=["title","clicks","user_id","description","slug","category_id",
-        "department_id","province_id","district_id","reference","date_from","date_to","date_created","status",
-        "validated","created_at"])
+    df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
+        "department_id","province_id","district_id","date_from","date_to","imported","date_created","status",
+        "validated","adtype_id","created_at"])
     limit=limit//2
     for i in range(len(jobs)):
         ubigeo=[4,401,40101]
@@ -488,11 +504,11 @@ def AQPscrap():
         desc[i]=desc[i].decode('utf-8')
         slug=slugify(jobs[i]+desc[i])
         dates[i]=datetime.strptime(dates[i],"%d/%m/%Y")
-        objeto ={'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
+        objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
                 'description':desc[i],'url':'https://www.convocatoriasdetrabajo.com/'+endpoints[i],'slug':slug+'-'+hasheo,'category_id':cats[i],
-                'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'reference':emps[i],'date_from':dates[i]-timedelta(days=30),
-                'date_to':dates[i],'date_created':dates[i],'status':1,'validated':1,
-                'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+                'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':dates[i]-timedelta(days=30),
+                'date_to':dates[i],'imported':0,'date_created':dates[i]-timedelta(days=30),'status':1,'validated':1,
+                'adtype_id':1,'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         objeto = pd.DataFrame([objeto])
         df = pd.concat((df,objeto),ignore_index=True)
         sys.stdout.write("\r"+"*"*(i+1)+" "+str(int((i+1)/limit*100))+"%")
@@ -509,41 +525,26 @@ def dumpSqLite(df):
     print("Listo.")
 
 def dump(df,baseDatos):
-    #staging chambeala, chambeala, staging oflik, oflik
-    bds=list(map(int,baseDatos.split(",")))
-    if len(bds)==1:
+    if baseDatos=="0":
         return
-    bdnames=["chambeal_staging","chambeal_db","oflik_staging","oflik_db"]
-    bdusers=["chambeala_staging","chambeala_staging","oflik_admin","oflik_admin"]
-    bdpass=["chambeala@2022!staging","chambeala@2022!staging","d4SXS69SZWtx","d4SXS69SZWtx"]
     try:
-        for i in range(len(bds)):
-            if bds[i]:
-                if i<2:
-                    with connect(
-                        host="162.55.232.15",
-                        user=bdusers[i],
-                        #user="root",
-                        password=bdpass[i],
-                        #password="",
-                        database= bdnames[i],
-                        #database="trabajos",
-                    ) as connection:
-                        db_data = "mysql+pymysql://"+ connection.user+":"+ parse.quote(connection._password) +"@162.55.232.15/"+connection.database+"?charset=utf8mb4"
-                        #print(db_data)
-                        engine = create_engine(db_data)
-                        #df.to_sql('myapp_trabajos',engine,if_exists='replace',index=True,index_label='id')
-                        df.to_sql('ads',engine,if_exists='append',index=False)
-                        engine.dispose()
-                        print()
-                        print("Listo en ",bdnames[i],".")
-                else:
-                    dff=df[['title','description','url','category_id','department_id','province_id','district_id','reference']]
-                    dff=dff.rename(columns={"category_id": "category", "department_id": "department","province_id":"province","district_id":"district","reference":"company"})
-                    for row_dict in dff.to_dict(orient="records"):
-                        envio(i,row_dict)
-                    print("Listo en ",bdnames[i],".")
-                    print()
+        with connect(
+            host="162.55.232.15",
+            user="chambeala_staging",
+            #user="root",
+            password="chambeala@2022!staging",
+            #password="",
+            database= "chambeal_staging" if baseDatos=="1" else "chambeal_db",
+            #database="trabajos",
+        ) as connection:
+            db_data = "mysql+pymysql://"+ connection.user+":"+ parse.quote(connection._password) +"@162.55.232.15/"+connection.database+"?charset=utf8mb4"
+            #print(db_data)
+            engine = create_engine(db_data)
+            #df.to_sql('myapp_trabajos',engine,if_exists='replace',index=True,index_label='id')
+            df.to_sql('ads',engine,if_exists='append',index=False)
+            engine.dispose()
+            print()
+            print("Listo.")
 
     except Error as e:
         print(e)
@@ -582,6 +583,8 @@ if __name__ == "__main__":
     else:
         print("Faltan argumentos.")
 '''
+df=BUscrap(sys.argv[1])
 
-dump(None,"0")
+df=AQPScrap()
+dump(df,"1")
 '''

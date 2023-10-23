@@ -8,6 +8,7 @@ from joblib import dump, load
 import urllib3
 import string
 import random
+from functools import reduce
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -56,14 +57,18 @@ def descripcion(identificador):
     print('Request has timed out')
     return ret
   soup = BeautifulSoup(response.content, 'html.parser')
-  #f = open("text.tmp", "wb")
+  e=""
+  i=""
   try:
-    s= soup.find_all('div',class_='fs16')[1]
-    #f.write(s.encode_contents())
-    ret=s.encode_contents()
+    s = soup.find_all('div',class_='fs16')[1]
+    e = soup.find('div',class_='mb5').a.text
+    i = soup.find('div',class_='logo_company').a.img['src']
+    ret=[s.encode_contents(),e,i]
+    #ret=s.encode_contents()
   except:
     #f.write(" ")
-    ret="No codification available"
+    ret=["No codification available",e,i]
+    #ret="No codification available"
   #f.close()
   return ret
 
@@ -101,3 +106,13 @@ def get_random_string(length):
     letters = string.ascii_lowercase + string.digits
     result_str = ''.join(random.choice(letters) for i in range(length))
     return result_str
+
+def basicHash(nombre: str):
+    chars = list(map(ord, nombre))
+    return reduce(lambda x, y:y+x,chars)
+
+def envioEmpresas(send_data):
+    send_url="https://staging.oflik.pe/api/add/company"
+    HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+    respuesta=requests.post(send_url,data=send_data,headers=HEADERS)
+    #print(respuesta.text)

@@ -40,28 +40,37 @@ $cnt=0;
 foreach ($_POST['marcas'] as $selected) {
 	if(array_key_exists($selected, $lugares))
 		$lugares[$selected] = $_POST['valores'][$cnt];
-		$cnt++;
+	$cnt++;
 }
 $salida = implode(',',$lugares);
-echo $_POST['fuente'];
+$bases=array('StagingCh'=>0,'Chambeal'=>0,'StagingOf'=>0,'Oflik'=>0);
+foreach ($_POST['bds'] as $selected){
+	if(array_key_exists($selected, $bases))
+		$bases[$selected] = 1;
+}
+$salida2 = implode(',',$bases);
+echo $_POST['valor'];
 $output = shell_exec('which firefox');
 if ($_POST['fuente']=="ct"){
-	$cmd=escapeshellcmd("./realScrapper.py 1 '" . $salida . "' ".$_POST["bd"]);
+	$cmd=escapeshellcmd("./realScrapper.py 1 '" . $salida . "' ".$salida2);
 }
 if ($_POST['fuente']=="cv"){
-	$cmd = escapeshellcmd("./realScrapper.py 2 ".$_POST["bd"]);
+	$cmd = escapeshellcmd("./realScrapper.py 2 ".$salida2);
 }
 if ($_POST['fuente']=="bm"){
-	$cmd = escapeshellcmd("./realScrapper.py 3 ".$_POST["valor"]. " ".$_POST["bd"]);
+	$cmd = escapeshellcmd("./realScrapper.py 3 ".$_POST["valor"][0]. " ".$salida2);
 }
 if ($_POST['fuente']=="tr"){
-	$cmd = escapeshellcmd("./realScrapper.py 4 ".$_POST["valor"]. " ".$_POST["bd"]);
+	$cmd = escapeshellcmd("./realScrapper.py 4 ".$_POST["valor"][1]. " ".$salida2);
 }
 if ($_POST['fuente']=="ep"){
-	$cmd = escapeshellcmd("./realScrapper.py 5 ".$_POST["valor"]. " ".$_POST["bd"]);
+	$cmd = escapeshellcmd("./realScrapper.py 5 ".$_POST["valor"][2]. " ".$salida2);
 }
 if ($_POST['fuente']=="pt"){
-	$cmd = escapeshellcmd("./realScrapper.py 6 ".$_POST["valor"]. " ".$_POST["bd"]);
+	$cmd = escapeshellcmd("./realScrapper.py 6 ".$_POST["valor"][3]. " ".$salida2);
+}
+if ($_POST['fuente']=="to"){
+	$cmd = escapeshellcmd("./realScrapper.py 7 ".$_POST["valor"][4]. " ".$salida2);
 }
 //$cmd=escapeshellcmd("xvfb-run ./seleniumTest.py");
 if(isset($_POST['ejecutar'])) {
@@ -91,16 +100,26 @@ if(isset($_POST['ejecutar'])) {
 	<button class="tablinks" onclick="openCity(event, 'Trabajosdiarios')">Trabajos Diarios</button>
 	<button class="tablinks" onclick="openCity(event, 'Empleosperu')">Empleos Perú</button>
 	<button class="tablinks" onclick="openCity(event, 'Perutrabajos')">Perú Trabajos</button>
+	<button class="tablinks" onclick="openCity(event, 'Troomes')">Troomes</button>
 </div>
 <hr />
 
 <form action="" method="post" id="wrapper">
-    <label>Base de datos</label>
-    <select name="bd">
+    <label>Base de datos</label><br />
+    <!--<select name="bd">
         <option value="1" selected>Staging</option>
         <option value="2">Principal</option>
-    </select>
-
+    </select>-->
+    <div style="display: flex;">
+	    <input type="checkbox" id="bd1" name="bds[]" value="StagingCh">
+	  	<label for="bd1"> Staging Chambeala</label><br>
+	  	<input type="checkbox" id="bd2" name="bds[]" value="Chambeal">
+	  	<label for="bd2"> Chambeala</label><br>
+	  	<input type="checkbox" id="bd3" name="bds[]" value="StagingOf">
+	  	<label for="bd3"> Staging Oflik</label>
+	  	<input type="checkbox" id="bd4" name="bds[]" value="Oflik">
+	  	<label for="bd4"> Oflik</label>
+  	</div>
 	<div id="Computrabajo" class="tabcontent">
 		<h2>pe.computrabajo.com</h2>
 	    <table>
@@ -154,27 +173,33 @@ if(isset($_POST['ejecutar'])) {
 	<div id="Bumeran" class="tabcontent">
 		<h2>www.bumeran.com.pe</h2>
 		<input type="hidden" name="fuente" value="bm"/>
-		<input type="number" name ="valor" min="0" max="100" value="20"/>
+		<input type="number" name ="valor[]" min="0" max="100" value="20"/>
 		<button type="submit" name="ejecutar">Realizar scrapping</button>
 	</div>
 
 	<div id="Trabajosdiarios" class="tabcontent">
 		<h2>pe.trabajosdiarios.com</h2>
 		<input type="hidden" name="fuente" value="tr"/>
-		<input type="number" name ="valor" min="0" max="100" value="20"/>
+		<input type="number" name ="valor[]" min="0" max="100" value="20"/>
 		<button type="submit" name="ejecutar">Realizar scrapping</button>
 	</div>
 
 	<div id="Empleosperu" class="tabcontent">
 		<h2>mtpe-candidatos.empleosperu.gob.pe</h2>
 		<input type="hidden" name="fuente" value="ep"/>
-		<input type="number" name ="valor" min="0" max="100" value="20"/>
+		<input type="number" name ="valor[]" min="0" max="100" value="20"/>
 		<button type="submit" name="ejecutar">Realizar scrapping</button>
 	</div>
 	<div id="Perutrabajos" class="tabcontent">
 		<h2>www.perutrabajos.com/</h2>
-		<input type="hidden" name="fuente" id="stigma" value="pt"/>
-		<input type="number" name ="valor" min="0" max="100" value="20"/>
+		<input type="hidden" name="fuente" value="pt"/>
+		<input type="number" name ="valor[]" min="0" max="100" value="20"/>
+		<button type="submit" name="ejecutar">Realizar scrapping</button>
+	</div>
+	<div id="Troomes" class="tabcontent">
+		<h2>www.troomes.com/</h2>
+		<input type="hidden" name="fuente" id="stigma" value="to"/>
+		<input type="number" name ="valor[]" min="0" max="100" value="20"/>
 		<button type="submit" name="ejecutar">Realizar scrapping</button>
 	</div>	
 
@@ -221,6 +246,8 @@ if(isset($_POST['ejecutar'])) {
 	  		document.getElementById('stigma').value="ep";
 	  	if(cityName=="Perutrabajos")
 	  		document.getElementById('stigma').value="pt";
+	  	if(cityName=="Troomes")
+	  		document.getElementById('stigma').value="to";
 
 	} 
 </script>

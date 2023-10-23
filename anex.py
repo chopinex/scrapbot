@@ -5,8 +5,10 @@ import sys
 import pandas as pd
 import random
 import time
-from complements import slugify, get_random_string
+from complements import slugify, get_random_string, basicHash, envioEmpresas
+from lxml import html, etree
 import re
+import math
 
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -20,12 +22,14 @@ dub = pd.read_csv('TB_UBIGEOS.csv', encoding='latin-1')
 def fecha(cadena: str):
 	entradas=cadena.split()
 	#mapeo
+	if entradas[-1] == "antes":
+		entradas.pop()
 	today=date.today()
-	if entradas[-1] in ["Hoy","hoy"] :
+	if entradas[-1] in ["Hoy","hoy","hrs"] :
 		return today
 	elif entradas[-1]=="ayer":
 		return today-timedelta(days=1)
-	elif entradas[-1]=="días":
+	elif entradas[-1] in ["días","dias"]:
 		return today-timedelta(days=int(entradas[-2]))
 	else:
 		if entradas[-2]=="ene":
@@ -203,110 +207,15 @@ def scroll_down(driver,howmany):
 		driver.execute_script("arguments[0].scrollIntoView(true);", ele)
 		time.sleep(0.5)
 		#name = ele.find_element(By.XPATH, ".//descendant::h3//a").get_attribute('innerText')
-		j = j + 1
+		j = j + 11
 
-def EPscrap(limit=""):
+def TRMscrap(limit=""):
 	limit=int(limit)
-	#base_url="https://www.empleosperu.gob.pe/portal-mtpe/#/"
-	base_url="https://mtpe-candidatos.empleosperu.gob.pe/search-jobs"
+	totalxp=20
+	numpags=math.ceil(limit/totalxp)
+	base_url='https://www.troomes.com/ucp.php?mode=login'
 	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
-	jobs=[]
-	depas=[]
-	distritos=[]
-	desc=[]
-	cats=[]
-	date=[]
-	date2=[]
-	hipervinculos=[]
-	newFound=0
-	print("Capturando nuevos trabajos de mtpe-candidatos.empleosperu.gob.pe...")
-	driver=seleniumConfig()
-	driver.get(base_url)
-	driver.implicitly_wait(5)
-	#print(driver.page_source)
-	#WebDriverWait(driver,30).until(EC.element_to_be_clickable(('xpath','//a[contains(@class,"btn-ofertas")]'))).click()
-	scroll_down(driver,limit)
-	ads=driver.find_elements('xpath','//a[contains(@class,"list__item")]')
-	for a in ads[:limit]:
-		newFound+=1
-		jobs.append(a.find_element('xpath','.//h5').text)
-		lugar=a.find_element('xpath','.//div[contains(@class,"vacancy__add-ellipsis")]').text.split("|")
-		#print("Empresa - Sitio: ",lugar)
-		if len(lugar)>1:
-			lugar=lugar[1].split("-")
-			#print("Depar - Dist: ",lugar)
-			if len(lugar)>1:
-				depas.append(lugar[0])
-				distritos.append(lugar[1])
-			else:
-				depas.append("Lima")
-				distritos.append("Lima")
-		else:
-			depas.append("Lima")
-			distritos.append("Lima")
-		hipervinculos.append(a.get_attribute("href"))
-		nf=newFound//2
-		sys.stdout.write("\r"+"*"*nf+" "+str(int(nf/limit*100))+"%")
-		sys.stdout.flush()
-		'''a.click()
-		fecha=driver.find_element('xpath','.//div[contains(@class,"details-component__job-info")]')
-		print(fecha.text)'''
-	for h in hipervinculos:
-		newFound+=1
-		driver.get(h)
-		time.sleep(2)
-
-		try:
-			fe=driver.find_element('xpath','//div[contains(@class,"details-component__job-info")]//li[contains(text(),"Fecha")]').text
-		except:
-			fe="hoy"
-		date.append(fecha(fe))
-		fe=driver.find_element('xpath','//div[contains(@class,"details-component__job-info")]//li[contains(text(),"Abierto")]').text
-		date2.append(fecha(fe))
-		desc.append(driver.find_element('xpath','//pre[contains(@class,"container")]//article').get_attribute("innerHTML"))
-		nf=newFound//2
-		sys.stdout.write("\r"+"*"*nf+" "+str(int(nf/limit*100))+"%")
-		sys.stdout.flush()
-		#print(description.get_attribute("innerHTML"))
-	print()
-	print(newFound//2," nuevos trabajos descubiertos")
-	print("Iniciando procesamiento...")
-
-	###dump in pandas
-	df = pd.DataFrame(columns=["hash","title","clicks","user_id","description","slug","category_id",
-		"department_id","province_id","district_id","date_from","date_to","imported","date_created","status",
-		"validated","adtype_id","created_at"])
-
-	for i in range(len(jobs)):
-		dp=depas[i].strip()
-		if dp.isdigit():
-			ubigeo=[int(dp[:2]),int(dp),int(distritos[i])]
-		else:
-			ubigeo=get_ubigeo(dp,distritos[i].strip())
-		#ubigeo=get_ubigeo(depas[i].strip(),distritos[i].strip())
-		cats.append(mapa_categorias(jobs[i]+desc[i]))
-		hasheo=get_random_string(7)
-		slug=slugify(desc[i])
-		objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
-		'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cats[i],
-		'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':date[i],
-		'date_to':date2[i],'imported':0,'date_created':date[i],'status':1,'validated':1,
-		'adtype_id':1,'created_at':datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-		objeto = pd.DataFrame([objeto])
-		df = pd.concat((df,objeto),ignore_index=True)
-		time.sleep(0.1)
-		sys.stdout.write("\r"+"*"*(i+1)+" "+str(int((i+1)/limit*100))+"%")
-		sys.stdout.flush()
-	print()
-	print(df.shape[0]," trabajos agregados")
-	return df
-
-def PTscrap(limit=""):
-	limit=int(limit)
-	base_url='https://www.perutrabajos.com/'
-	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
-	r = requests.get(base_url,headers=HEADERS)
-	print("Capturando nuevos trabajos de www.perutrabajos.com...")
+	print("Capturando nuevos trabajos de www.troomes.com...")
 	jobs=[]
 	depas=[]
 	#distritos=[]
@@ -314,53 +223,53 @@ def PTscrap(limit=""):
 	cats=[]
 	dates=[]
 	hipervinculos=[]
-	#ofertores=[]
-	soup = BeautifulSoup(r.content, 'lxml')
-	#print(soup)
-	ads= soup.find_all('div',class_='post__content')
 	newFound=0
-	for a in ads:
+	session = requests.Session()
+	login=session.get(base_url,headers=HEADERS)
+	parser = html.fromstring(login.text)
+	ses_token=parser.xpath('//input[@name="form_token"]/@value')
+	ses_id=parser.xpath('//input[@name="sid"]/@value')
+	ses_time=parser.xpath('//input[@name="creation_time"]/@value')
+	login_data={
+		"username": "arturoAqp",
+		"password": "Gamer001!",
+		"form_token": ses_token,
+		"sid": ses_id,
+		"redirect": "./index.php",
+		"creation_time": ses_time
+	}
+	session.post(base_url,data=login_data,headers=HEADERS)
+	data_url="https://www.troomes.com/app.php/postulante/busqueda?page="
+	for j in range(numpags):
 		if newFound>=limit:
 			break
-		link1=a.find('a', href=True)
-		r=requests.get(base_url+link1["href"],headers=HEADERS)
-		soup = BeautifulSoup(r.content, 'lxml')
-		empresa_desc=soup.find('div',class_='datos')
-		empresa_desc=empresa_desc.text.split('\n')
-		empresa_desc=[i for i in empresa_desc if i]
-		empresa_desc='\n'.join(empresa_desc[1:-2])
-		offers=soup.find_all('article',class_='info-conv')
-		for of in offers:
-			if newFound>=limit:
-				break
+		respuesta=session.get(data_url+str(totalxp*j),headers=HEADERS)
+		parser = html.fromstring(respuesta.text)
+		titulos=parser.xpath('//div[@class="listempleos"]//b[@class="titulo_oferta"]/text()')
+		fechas=parser.xpath('//div[@class="listempleos"]/span[3]/text()')
+		lugares=parser.xpath('//div[@class="listempleos"]//span[4]/text()')
+		ofertas=parser.xpath('//button[@class="Btnresultados"]/@value')
+		for i in range(totalxp):
 			newFound+=1
-			depa_txt='Departamento'
-			fecha_txt='oferta'
-			depa=of.find(lambda tag: tag.name == "p" and depa_txt in tag.text)
-			if depa:
-				ldt=depa.text.split()
-				di=ldt.index("Departamento:") if "Departamento:" in ldt else -1
-				pi=ldt.index("Provincia:")  if "Provincia:" in ldt else -1
-				if pi>=0:
-					depas.append(' '.join(ldt[di+1:pi])[:-1])
-				else:
-					depas.append(' '.join(ldt[di+1:]))
-			else:
-				depas.append("Lima")
-			fechaa=of.find(lambda tag: tag.name == 'p' and fecha_txt in tag.text)
-			if fechaa:
-				dates.append(fecha2(' '.join(fechaa.text.split()[-5:])))
-			else:
-				dates.append(fecha2(date.today().strftime("%d de %B del %Y")))
-			r=requests.get(base_url+of.h4.a["href"],headers=HEADERS)
-			hipervinculos.append(base_url+of.h4.a["href"])
-			soup = BeautifulSoup(r.content, 'lxml')
-			title=soup.find('h1')
-			jobs.append(title.text)
-			description=soup.find('div',class_='conv-detalle')
-			desc.append(empresa_desc+str(description.encode_contents()))
 			sys.stdout.write("\r"+"*"*newFound+" "+str(int(newFound/limit*100))+"%")
 			sys.stdout.flush()
+			jobs.append(titulos[i])
+			dates.append(fecha(fechas[i]))
+			depas.append(lugares[i])
+			search_data={
+				"mode":"mostrar_oferta",
+				"id_oferta":ofertas[i]
+			}
+			buscar=session.post(data_url,data=search_data,headers=HEADERS)
+			parser = html.fromstring(buscar.text)
+			descripcion=parser.xpath('//div[@id="oferta_trabajo"]/div[@class="descripcion"]')
+			for d in descripcion:
+				desc.append(etree.tostring(d,encoding='unicode'))
+			job_url="https://www.troomes.com/app.php/jobs/"
+			hipervinculos.append(job_url+ofertas[i])
+			if newFound>=limit:
+				break
+
 	print()
 	print(newFound," nuevos trabajos descubiertos")
 	print("Iniciando procesamiento...")
@@ -382,8 +291,8 @@ def PTscrap(limit=""):
 		slug=slugify(desc[i])
 		objeto ={'hash':hasheo,'title':jobs[i],'clicks':0,'user_id':random.randint(3,15),
 		'description':desc[i],'url':hipervinculos[i],'slug':slug+'-'+hasheo,'category_id':cats[i],
-		'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':date.today().strftime('%Y-%m-%d'),
-		'date_to':dates[i],'imported':0,'date_created':date.today().strftime('%Y-%m-%d'),'status':1,'validated':1,
+		'department_id':ubigeo[0],'province_id':ubigeo[1],'district_id':ubigeo[2],'date_from':dates[i],
+		'date_to':dates[i]+timedelta(days=30),'imported':0,'date_created':dates[i],'status':1,'validated':1,
 		'adtype_id':1,'created_at':date.today().strftime('%Y-%m-%d')}
 		objeto = pd.DataFrame([objeto])
 		df = pd.concat((df,objeto),ignore_index=True)
@@ -394,30 +303,128 @@ def PTscrap(limit=""):
 	print(df.shape[0]," trabajos agregados")
 	return df
 
-def TRMscrap(limit=""):
-	#limit=int(limit)
-	base_url='https://www.troomes.com/app.php/postulante/busqueda'
+def envio(send_data):
+	send_url="https://oflik.pe/api/add/ad"
 	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
-	print("Capturando nuevos trabajos de www.troomes.com...")
+	respuesta=requests.post(send_url,data=send_data,headers=HEADERS)
+	print(respuesta.text)
+
+def LINscrap(limit="10"):
+	limit=int(limit)
+	tope=25
+	j=0
+	newFound=0
+	base_url='https://www.linkedin.com/jobs/search?keywords=&location=Peru&geoId=&trk=guest_homepage-basic_guest_nav_menu_jobs'
+	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+	print("Capturando nuevos trabajos de pe.linkedin.com...")
+	enlaces=[]
 	jobs=[]
-	depas=[]
-	distritos=[]
-	desc=[]
-	cats=[]
-	dates=[]
 	hipervinculos=[]
-	username = "arturoAqp"
-	password = "Gamer001!"
+	ubicaciones=[]
+	emps=[]
+	descripciones=[]
+	empresas={}
 	driver=seleniumConfig()
-	driver.get("https://www.troomes.com/index.php?&sid=5d253d5d0fcb5566272d2817550e09f7")
+	driver.get(base_url+"&position=1&pageNum=0")
 	driver.implicitly_wait(5)
-	print(driver.page_source)
-	#WebDriverWait(driver=driver, timeout=100).until(EC.element_to_be_clickable(('xpath', 'input[@id="username"]'))).send_keys(username)
-	#driver.find_element('xpath', '//input[@id="username"]').send_keys(username)
-	#driver.find_element("id", "password").send_keys(password)
-	#driver.find_element("id", "login").click()
-	#WebDriverWait(driver=driver, timeout=10).until(
-	#lambda x: x.execute_script("return document.readyState === 'complete'"))
-	#user=driver.find_element('xpath','//*[@id="profile_menu"]')
-	#print(user.text)
-TRMscrap()
+	while (tope*j)//limit<1:
+		driver.get('https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=&location=Peru&geoId=&trk=guest_homepage-basic_guest_nav_menu_jobs&start='+str(j*tope))
+		links=driver.find_elements('xpath','//a[contains(@class,"base-card__full-link")]')
+		for l in links:
+			if newFound>=limit:
+				break
+			newFound+=1
+			enlaces.append(l.get_attribute('href'))
+		j+=1
+	for e in enlaces:
+		pos=e.find("?")
+		hrefer="https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/"+e[pos-10:pos]
+		hipervinculos.append(hrefer)
+		#t = requests.get(hrefer,headers=HEADERS)
+		#soup = BeautifulSoup(t.content, 'lxml')
+		driver.get(hrefer)
+		print(driver.page_source)
+		#title=soup.find('h2',class_="top-card-layout__title")
+		title=driver.find_element('xpath','//h2[contains(@class,"top-card-layout__title")]')
+		jobs.append(title)
+		#ubicaciones.append(soup.find('span',class_="topcard__flavor--bullet").text)
+		ubi=driver.find_element('xpath','//span[contains(@class,"topcard__flavor--bullet")]')
+		ubicaciones.append(ubi.text)
+		#ee=soup.find('a',class_="topcard__org-name-link").text
+		ee=driver.find_element('xpath','//a[contains(@class,"topcard__org-name-link")]')
+		ee=ee.text
+		emps.append(ee)
+		bh=basicHash(ee)%101
+		if bh in empresas.keys():
+			if ee not in empresas[bh]:
+				empresas[bh].append(ee)
+				datos_empresas={'name':ee}
+				#,'image':img_emp
+				envioEmpresas(datos_empresas)
+			else:
+				empresas[bh]=[]
+				empresas[bh].append(ee)
+				datos_empresas={'name':ee}
+				envioEmpresas(datos_empresas)
+		#descripciones.append(soup.find("div",class_="show-more-less-html__markup").encode_contents())
+		desc=driver.find_element('xpath','//div[contains(@class,"show-more-less-html__markup")]')
+		descripciones.append(desc.get_attribute('innerHtml'))
+		time.sleep(1)
+	print(jobs)
+	print(ubicaciones)
+	print(emps)
+	print(empresas)
+	#print(descripciones)
+
+def retries(url,headers,proxy):
+	MAX_RETRIES=3
+	for _ in range(MAX_RETRIES):
+		try:
+			r = requests.get(url,headers=headers, proxies = {
+			'http': proxy,
+			'https': proxy
+			}, timeout=(30,60))
+			if r.status_code in [200, 404]:
+				break
+		except requests.exceptions.ConnectTimeout:
+			pass
+		except requests.exceptions.SSLError:
+			pass
+		except requests.exceptions.ProxyError:
+			pass
+	if r is None or r.status_code != 200:
+		print('Request has timed out')
+		return
+	else:
+		return r
+
+def ubicania():
+	base_url="https://ubicania.com/"
+	send_url="https://staging.oflik.pe/api/add/company"
+	HEADERS = {'User-Agent' :'Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0'}
+	username = 'spweyay4hc'
+	password = 'ur2xtC8aIhrb78nsQO'
+	proxy = f"http://{username}:{password}@pe.smartproxy.com:40000"
+	r = requests.get(base_url,headers=HEADERS)
+	soup = BeautifulSoup(r.content, 'html.parser')
+	depas = soup.find_all('a',class_='blue')
+	#for d in depas:
+	#	print(d['href'])
+	r=retries(base_url+depas[1]['href'],HEADERS,proxy)
+	#r = requests.get(base_url+depas[0]['href'])
+	soup = BeautifulSoup(r.content, 'html.parser')
+	ads=soup.find_all('div',class_='item_list')
+	for ad in ads:
+		emp_url=ad.div.next_sibling.next_sibling.span.a['href']
+		r=retries(emp_url,HEADERS,proxy)
+		soup = BeautifulSoup(r.content, 'html.parser')
+		titulo=soup.find('h1').text
+		direccion=soup.find_all('div',class_='info_block')
+		direccion=direccion[0].text.split(':')[1]
+		ruc=soup.find('div',class_='product_description')
+		ruc=ruc.ul.li.text.split(':')[1]
+		datos_empresas={'name':titulo,'ruc':ruc.strip(),'address':direccion.strip()}
+		#print(titulo,ruc.strip(),direccion.strip())
+		respuesta=requests.post(send_url,data=datos_empresas,headers=HEADERS)
+		print(respuesta.text)
+ubicania()
